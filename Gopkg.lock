@@ -2,6 +2,12 @@
 
 
 [[projects]]
+  branch = "master"
+  name = "github.com/bogdanovich/dns_resolver"
+  packages = ["."]
+  revision = "a8e42bc6a5b6c9a93be01ca204be7e17f7ba4cd2"
+
+[[projects]]
   name = "github.com/fsnotify/fsnotify"
   packages = ["."]
   revision = "c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9"
@@ -11,10 +17,8 @@
   name = "github.com/google/gopacket"
   packages = [
     ".",
-    "examples/util",
     "layers",
     "pcap",
-    "pfring",
     "tcpassembly"
   ]
   revision = "11c65f1ca9081dfea43b4f9643f5c155583b73ba"
@@ -42,6 +46,12 @@
   packages = ["."]
   revision = "c2353362d570a7bfa228149c62842019201cfb71"
   version = "v1.8.0"
+
+[[projects]]
+  name = "github.com/miekg/dns"
+  packages = ["."]
+  revision = "5a2b9fab83ff0f8bfc99684bd5f43a37abe560f1"
+  version = "v1.0.8"
 
 [[projects]]
   branch = "master"
@@ -90,9 +100,30 @@
 
 [[projects]]
   branch = "master"
+  name = "golang.org/x/crypto"
+  packages = [
+    "ed25519",
+    "ed25519/internal/edwards25519"
+  ]
+  revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
+
+[[projects]]
+  branch = "master"
+  name = "golang.org/x/net"
+  packages = [
+    "bpf",
+    "internal/iana",
+    "internal/socket",
+    "ipv4",
+    "ipv6"
+  ]
+  revision = "e514e69ffb8bc3c76a71ae40de0118d794855992"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/sys"
   packages = ["unix"]
-  revision = "a200a19cb90b19de298170992778b1fda7217bd6"
+  revision = "7138fd3d9dc8335c567ca206f4333fb75eb05d56"
 
 [[projects]]
   name = "golang.org/x/text"
@@ -116,6 +147,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "47bad276b992eb14136ec2a1825c3a3971443c7e9e08ffc6f73ad5b699f2df57"
+  inputs-digest = "cd2bbba5f913aa49d1102d8cbb81502d6f648c60ebb8b7a70c2e001b88975109"
   solver-name = "gps-cdcl"
   solver-version = 1
