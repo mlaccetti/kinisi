@@ -1,15 +1,17 @@
 OS := $(shell uname)
-TARGET := ipd2
+TARGET := kinisi
 
-ifeq ($(OS),Linux)
-	TAR_OPTS := --wildcards
+ifeq ($(OS),Windows_NT)
+	BUILD_TAG := $(shell if %TRAVIS_TAG% == %^TRAVIS_TAG% (echo "No tag") else echo ("tag"))
+	PWD := $(shell echo %CWD%)
+else
+	BUILD_TAG := $(shell [ -z "${TRAVIS_TAG}" ] && date +%s || echo "${TRAVIS_TAG}")
+	PWD := $(shell pwd)
+
+	ifeq ($(OS),Linux)
+		TAR_OPTS := --wildcards
+	endif
 endif
-
-guard-%:
-	@ if [ "${${*}}" = "" ]; then \
-		echo "Environment variable $* not set"; \
-		exit 0; \
-	fi
 
 all: deps test vet build
 
@@ -28,15 +30,15 @@ deps:
 	dep ensure
 	@echo ""
 
-
 test:
 	@echo "Running tests"
 	go test ./...
 	@echo ""
 
-build: build_darwin_amd64 \
-	build_linux_amd64 \
-	build_windows_amd64
+build: build_linux_amd64
+#build: build_darwin_amd64 \
+#	build_linux_amd64 \
+#	build_windows_amd64
 
 build_darwin_%: GOOS := darwin
 build_linux_%: GOOS := linux
@@ -46,8 +48,15 @@ build_windows_%: EXT := .exe
 build_%_amd64: GOARCH := amd64
 
 build_%:
-	env GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=0 go build -a -installsuffix cgo -o build/$(TARGET)-${TRAVIS_TAG}-$(GOOS)_$(GOARCH)$(EXT) ./cmd/ipd/main.go
+	@echo "Running on $(OS)"
+	env GOOS=$(GOOS) GOARCH=$(GOARCH) CGO_ENABLED=1 go build -v -x -a -installsuffix cgo -o build/$(TARGET)-$(BUILD_TAG)-$(GOOS)_$(GOARCH)$(EXT) cmd/main.go
 
 clean:
 	@echo "Cleaning up generated folders/files."
 	rm -fr build
+
+docker-build:
+	docker build -t mlaccetti/kinisi:build .
+
+docker-run: docker-build
+	docker run -v $(PWD)/../../../..:/go -it mlaccetti/kinisi:build

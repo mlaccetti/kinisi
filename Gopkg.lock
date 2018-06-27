@@ -11,10 +11,11 @@
   name = "github.com/google/gopacket"
   packages = [
     ".",
-    "dumpcommand",
-    "ip4defrag",
+    "examples/util",
     "layers",
-    "pfring"
+    "pcap",
+    "pfring",
+    "tcpassembly"
   ]
   revision = "11c65f1ca9081dfea43b4f9643f5c155583b73ba"
   version = "v1.1.14"
@@ -115,6 +116,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "89dc2b6e88fe59bfcca4423f6929de8cc56d99ebaf13b4af28591aff8e3ad891"
+  inputs-digest = "47bad276b992eb14136ec2a1825c3a3971443c7e9e08ffc6f73ad5b699f2df57"
   solver-name = "gps-cdcl"
   solver-version = 1
