@@ -1,15 +1,15 @@
 package internal
 
 import (
-	"log"
+	"context"
+	"net"
 	"time"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/google/gopacket/pcap"
 	"github.com/google/gopacket/tcpassembly"
-
-	"github.com/bogdanovich/dns_resolver"
+	"github.com/juju/loggo"
 )
 
 // simpleStreamFactory implements tcpassembly.StreamFactory
@@ -25,16 +25,17 @@ type statsStream struct {
 
 type StringFlow struct {
 	net gopacket.Flow
-	src string
-	dst string
+	src[] string
+	dst[] string
 }
 
 var _resolveDns = false
+var log = loggo.GetLogger("network")
 
 // New creates a new stream.  It's called whenever the assembler sees a stream
 // it isn't currently following.
 func (factory *statsStreamFactory) New(net, transport gopacket.Flow) tcpassembly.Stream {
-	log.Printf("new stream %v:%v started", net, transport)
+	log.Infof("new stream %v:%v started", net, transport)
 	s := &statsStream{
 		net:       net,
 		transport: transport,
@@ -64,6 +65,11 @@ func (s *statsStream) Reassembled(reassemblies []tcpassembly.Reassembly) {
 	}
 }
 
+func GoogleDnsDialer (ctx context.Context, network, address string) (net.Conn, error) {
+	d := net.Dialer{}
+	return d.DialContext(ctx, "udp", "1.1.1.1:53")
+}
+
 // ReassemblyComplete is called when the TCP assembler believes a stream has
 // finished.
 func (s *statsStream) ReassemblyComplete() {
@@ -72,31 +78,32 @@ func (s *statsStream) ReassemblyComplete() {
 	dumpNet := StringFlow{
 		net: s.net,
 	}
+
 	if _resolveDns {
-		resolver := dns_resolver.New([]string{"8.8.8.8", "8.8.4.4"})
+		r := net.Resolver{
+			PreferGo: true,
+			Dial: GoogleDnsDialer,
+		}
 
-		// In case of i/o timeout
-		resolver.RetryTimes = 5
-
+		ctx := context.Background()
 		srcString := s.net.Src().String()
-		src, err := resolver.LookupHost(srcString)
+		src, err := r.LookupAddr(ctx, srcString)
 		if err != nil {
-			log.Printf("Could not resolve source address: %v", err)
+			log.Infof("Could not resolve source address (%v): %v", srcString, err)
 		} else {
 			dumpNet.src = src
 		}
 
 		dstString := s.net.Dst().String()
-		dst, err := resolver.LookupHost(dstString)
+		dst, err := r.LookupAddr(ctx, dstString)
 		if err != nil {
-			log.Printf("Could not resolve destination address: %v", err)
+			log.Infof("Could not resolve destination address (%v): %v", dstString, err)
 		} else {
 			dumpNet.dst = dst
 		}
 	}
 
-
-	log.Printf("Reassembly of stream %v:%v complete - start:%v end:%v bytes:%v packets:%v ooo:%v bps:%v pps:%v skipped:%v",
+	log.Infof("Reassembly of stream %v:%v complete - start:%v end:%v bytes:%v packets:%v ooo:%v bps:%v pps:%v skipped:%v",
 		dumpNet, s.transport, s.start, s.end, s.bytes, s.packets, s.outOfOrder,
 		float64(s.bytes)/diffSecs, float64(s.packets)/diffSecs, s.skipped)
 }
@@ -106,17 +113,19 @@ func Start(flushAfter *string, iface *string, snaplen *int, filter *string, buff
 	_resolveDns = *resolveDns
 	flushDuration, err := time.ParseDuration(*flushAfter)
 	if err != nil {
-		log.Fatal("invalid flush duration: ", flushAfter)
+		log.Criticalf("invalid flush duration: ", flushAfter)
 	}
 
-	log.Printf("starting capture on interface %v", iface)
+	log.Infof("DNS resolution enabled: %t", *resolveDns)
+
+	log.Infof("starting capture on interface %v", *iface)
 	// Set up pcap packet capture
 	handle, err := pcap.OpenLive(*iface, int32(*snaplen), true, flushDuration/2)
 	if err != nil {
-		log.Fatal("error opening pcap handle: ", err)
+		log.Criticalf("error opening pcap handle: ", err)
 	}
 	if err := handle.SetBPFFilter(*filter); err != nil {
-		log.Fatal("error setting BPF filter: ", err)
+		log.Criticalf("error setting BPF filter: ", err)
 	}
 
 	// Set up assembly
@@ -126,7 +135,7 @@ func Start(flushAfter *string, iface *string, snaplen *int, filter *string, buff
 	assembler.MaxBufferedPagesPerConnection = *bufferedPerConnection
 	assembler.MaxBufferedPagesTotal = *bufferedTotal
 
-	log.Println("reading in packets")
+	log.Infof("reading in packets")
 
 	// We use a DecodingLayerParser here instead of a simpler PacketSource.
 	// This approach should be measurably faster, but is also more rigid.
@@ -140,9 +149,10 @@ func Start(flushAfter *string, iface *string, snaplen *int, filter *string, buff
 	var ip6 layers.IPv6
 	var ip6extensions layers.IPv6ExtensionSkipper
 	var tcp layers.TCP
+	var udp layers.UDP
 	var payload gopacket.Payload
 	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet,
-		&eth, &dot1q, &ip4, &ip6, &ip6extensions, &tcp, &payload)
+		&eth, &dot1q, &ip4, &ip6, &ip6extensions, &tcp, &udp, &payload)
 	decoded := make([]gopacket.LayerType, 0, 4)
 
 	nextFlush := time.Now().Add(flushDuration / 2)
@@ -158,7 +168,7 @@ loop:
 		// never see packet data.
 		if time.Now().After(nextFlush) {
 			stats, _ := handle.Stats()
-			log.Printf("flushing all streams that haven't seen packets in the last 2 minutes, pcap stats: %+v", stats)
+			log.Infof("flushing all streams that haven't seen packets in the last 2 minutes, pcap stats: %+v", stats)
 			assembler.FlushOlderThan(time.Now().Add(flushDuration))
 			nextFlush = time.Now().Add(flushDuration / 2)
 		}
@@ -175,16 +185,16 @@ loop:
 		data, ci, err := handle.ZeroCopyReadPacketData()
 
 		if err != nil {
-			log.Printf("error getting packet: %v", err)
+			log.Errorf("error getting packet: %v", err)
 			continue
 		}
 		err = parser.DecodeLayers(data, &decoded)
 		if err != nil {
-			log.Printf("error decoding packet: %v", err)
+			log.Errorf("error decoding packet: %v", err)
 			continue
 		}
 		if *logAllPackets {
-			log.Printf("decoded the following layers: %v", decoded)
+			log.Debugf("decoded the following layers: %v", decoded)
 		}
 		byteCount += int64(len(data))
 		// Find either the IPv4 or IPv6 address to use as our network
@@ -203,13 +213,13 @@ loop:
 				if foundNetLayer {
 					assembler.AssembleWithTimestamp(netFlow, &tcp, ci.Timestamp)
 				} else {
-					log.Println("could not find IPv4 or IPv6 layer, inoring")
+					log.Infof("could not find IPv4 or IPv6 layer, inoring")
 				}
 				continue loop
 			}
 		}
-		log.Println("could not find TCP layer")
+		log.Infof("could not find TCP layer")
 	}
 	assembler.FlushAll()
-	log.Printf("processed %d bytes in %v", byteCount, time.Since(start))
+	log.Infof("processed %d bytes in %v", byteCount, time.Since(start))
 }

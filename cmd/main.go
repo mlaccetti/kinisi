@@ -1,12 +1,18 @@
 package main
 
 import (
-	"io/ioutil"
-	"log"
 	"os"
 
+	"github.com/juju/loggo"
+	"github.com/juju/loggo/loggocolor"
 	"github.com/mlaccetti/kinisi/internal"
 )
+
+var log = loggo.GetLogger("")
+
+func init() {
+	loggo.ConfigureLoggers("<root>=TRACE")
+}
 
 func main() {
 	retVal := _SnarfPackets(false)
@@ -22,13 +28,16 @@ func _SnarfPackets(testMode bool) int {
 	}
 
 	verboseMode := viper.GetBool("verbose")
-	if !viper.IsSet("verbose") || verboseMode == false {
-		log.SetFlags(0)
-		log.SetOutput(ioutil.Discard)
+	if viper.IsSet("verbose") && verboseMode == true {
+		var traceWriter = loggo.NewMinimumLevelWriter(loggocolor.NewWriter(os.Stderr), loggo.TRACE)
+		loggo.ReplaceDefaultWriter(traceWriter)
+		log.Infof("Verbose mode: enabled")
 	} else {
-		log.Println("Verbose mode: enabled")
+		var infoWriter = loggo.NewMinimumLevelWriter(loggocolor.NewWriter(os.Stderr), loggo.INFO)
+		loggo.ReplaceDefaultWriter(infoWriter)
 	}
 
+	log.Infof("kinisi online, snarfing traffic.")
 	var iface = viper.GetString("interface")
 	var snaplen = viper.GetInt("snaplen")
 	var filter = viper.GetString("filter")
