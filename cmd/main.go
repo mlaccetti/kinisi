@@ -41,13 +41,9 @@ func _SnarfPackets(testMode bool) int {
 	var iface = viper.GetString("interface")
 	var snaplen = viper.GetInt("snaplen")
 	var filter = viper.GetString("filter")
-	var connectionMaxBuffer = viper.GetInt("connection_max_buffer")
-	var totalMaxBuffer = viper.GetInt("total_max_buffer")
-	var flushAfter = viper.GetString("flush_after")
-	var packetCount = viper.GetInt("packet_count")
 	var resolveDns = viper.GetBool("resolve_dns")
 
-	internal.Start(&flushAfter, &iface, &snaplen, &filter, &connectionMaxBuffer, &totalMaxBuffer, &packetCount, &verboseMode, &resolveDns)
+	internal.Start(&iface, &snaplen, &filter, &verboseMode, &resolveDns)
 
 	return 0
 }
