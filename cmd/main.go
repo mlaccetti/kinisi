@@ -51,7 +51,7 @@ func _SnarfPackets(testMode bool) int {
 	go internal.PrometheusHttpServer(errs, &listen)
 
 	var c = make(chan internal.Traffic)
-	go internal.Start(errs, c, &iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
+	go internal.Start(c, &iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
 	go internal.MetricHandler(c)
 
 	select {

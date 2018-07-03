@@ -2,21 +2,23 @@ package internal
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 )
 
-var trafficCounter = prometheus.NewCounterVec(
-	prometheus.CounterOpts{
+var trafficSummary = prometheus.NewSummaryVec(
+	prometheus.SummaryOpts{
 		Name: "network_traffic",
 		Help: "Network connections, partitioned by IP4/6, protocol (TCP/UDP), and source/destination",
+		Objectives: map[float64]float64{},
 	},
-	[]string{"network_layer", "transport_layer", "source", "destination"},
+	[]string{"network_layer", "transport_layer", "source", "source_port", "destination", "destination_port"},
 )
 
 func init() {
-	prometheus.MustRegister(trafficCounter)
+	prometheus.MustRegister(trafficSummary)
 }
 
 func PrometheusHttpServer(errs chan<- error, listen *string) {
@@ -33,6 +35,6 @@ func MetricHandler(c <-chan Traffic) {
 	for {
 		t := <-c
 
-		trafficCounter.WithLabelValues(t.ipType, t.layerType, t.src, t.dst + ":" + t.dstPort).Add(float64(t.len))
+		trafficSummary.WithLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort))).Observe(float64(t.len))
 	}
 }

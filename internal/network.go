@@ -3,6 +3,7 @@ package internal
 import (
 	"context"
 	"net"
+	"strings"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -15,9 +16,9 @@ type Traffic struct {
 	layerType string
 	src string
 	dst string
-	srcPort string
-	dstPort string
-	len int
+	srcPort uint16
+	dstPort uint16
+	len uint16
 }
 
 var log = loggo.GetLogger("network")
@@ -27,11 +28,16 @@ func GoogleDnsDialer (ctx context.Context, network, address string) (net.Conn, e
 	return d.DialContext(ctx, "udp", "1.1.1.1:53")
 }
 
-func Start(errs chan<- error, c chan<- Traffic, iface *string, snaplen *int, filter *string, ipv4 *bool, ipv6 *bool, verboseMode *bool, resolveDns *bool) {
+func Start(c chan<- Traffic, iface *string, snaplen *int, filter *string, ipv4 *bool, ipv6 *bool, verboseMode *bool, resolveDns *bool) {
 	pcapHandle, err := pcap.OpenLive(*iface, int32(*snaplen), true, pcap.BlockForever)
 	if err != nil {
 		log.Criticalf("Could not open pcapHandle: %v", err)
 		return
+	}
+
+	if *filter != "" {
+		log.Infof("Setting packet filter to: [ %s ]", *filter)
+		pcapHandle.SetBPFFilter(*filter)
 	}
 
 	packetSource := gopacket.NewPacketSource(pcapHandle, layers.LinkTypeEthernet)
@@ -64,7 +70,7 @@ func Start(errs chan<- error, c chan<- Traffic, iface *string, snaplen *int, fil
 		parser.DecodeLayers(packet.Data(), &decoded)
 
 		var t = Traffic {
-			len: len(packet.Data()),
+			len: uint16(len(packet.Data())),
 		}
 
 		for _, layerType := range decoded {
@@ -78,12 +84,12 @@ func Start(errs chan<- error, c chan<- Traffic, iface *string, snaplen *int, fil
 				t.dst = ip6.NetworkFlow().Dst().String()
 				t.ipType = "ip6"
 			case layers.LayerTypeTCP:
-				t.srcPort = tcp.SrcPort.String()
-				t.dstPort = tcp.DstPort.String()
+				t.srcPort = uint16(tcp.SrcPort)
+				t.dstPort = uint16(tcp.DstPort)
 				t.layerType = "tcp"
 			case layers.LayerTypeUDP:
-				t.srcPort = udp.SrcPort.String()
-				t.dstPort = udp.DstPort.String()
+				t.srcPort = uint16(udp.SrcPort)
+				t.dstPort = uint16(udp.DstPort)
 				t.layerType = "udp"
 			}
 		}
@@ -98,17 +104,17 @@ func Start(errs chan<- error, c chan<- Traffic, iface *string, snaplen *int, fil
 
 			resolvedSrc, err := r.LookupAddr(ctx, t.src)
 			if err == nil {
-				t.src = resolvedSrc[len(resolvedSrc)-1]
+				t.src = strings.TrimSuffix(resolvedSrc[len(resolvedSrc)-1], ".")
 			}
 
 			resolvedDst, err := r.LookupAddr(ctx, t.dst)
 			if err == nil {
-				t.dst = resolvedDst[len(resolvedDst)-1]
+				t.dst = strings.TrimSuffix(resolvedDst[len(resolvedDst)-1], ".")
 			}
 		}
 
-		if t.layerType != "" && t.layerType != "udp" && t.dstPort != "53" {
-			log.Debugf("ip type: %s | layer type: %s | src: %v | src port: %s | dst: %s | dst port: %s | len: %b", t.ipType, t.layerType, t.src, t.srcPort, t.dst, t.dstPort, t.len)
+		if t.layerType != "" && t.layerType != "udp" && t.dstPort != 53 {
+			log.Debugf("ip type: %s | layer type: %s | src: %v | src port: %d | dst: %s | dst port: %d | len: %d", t.ipType, t.layerType, t.src, t.srcPort, t.dst, t.dstPort, t.len)
 		}
 
 		c <- t
