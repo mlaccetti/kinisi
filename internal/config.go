@@ -29,6 +29,7 @@ var buf = new(bytes.Buffer)
 func init() {
 	pflag.BoolP("help", "h", false, "Show this help message")
 	pflag.BoolP("verbose", "v", false, "Verbose output (default false)")
+	pflag.StringP("listen", "l", ":8080", "Listening address")
 	pflag.StringP("interface", "i", "eth0", "Interface to read packets from")
 	pflag.IntP("snaplen", "s", 65536, "Snap length (number of bytes max to read per packet)")
 	pflag.BoolP("ip4", "4", true, "Monitor IPv4 traffic (default true)")

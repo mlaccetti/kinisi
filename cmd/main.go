@@ -37,6 +37,7 @@ func _SnarfPackets(testMode bool) int {
 		loggo.ReplaceDefaultWriter(infoWriter)
 	}
 
+	var listen = viper.GetString("listen")
 	var iface = viper.GetString("interface")
 	var snaplen = viper.GetInt("snaplen")
 	var ip4 = viper.GetBool("ip4")
@@ -46,7 +47,18 @@ func _SnarfPackets(testMode bool) int {
 
 	log.Infof("kinisi online, snarfing traffic on %v (ip4: %t, ip6: %t); dns resolution enabled: %t", iface, ip4, ip6, resolveDns)
 
-	internal.Start(&iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
+	errs := make(chan error)
+	go internal.PrometheusHttpServer(errs, &listen)
+
+	var c = make(chan internal.Traffic)
+	go internal.Start(errs, c, &iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
+	go internal.MetricHandler(c)
+
+	select {
+	case err := <-errs:
+		log.Criticalf("Could not start snarf traffic due to error: %v", err)
+		return 1
+	}
 
 	return 0
 }

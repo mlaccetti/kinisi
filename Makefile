@@ -59,4 +59,4 @@ docker-build:
 	docker build -t mlaccetti/kinisi:build .
 
 docker-run: docker-build
-	docker run -v $(PWD)/../../../..:/go -it mlaccetti/kinisi:build
+	docker run -v $(PWD)/../../../..:/go -it -p 8080:8080 mlaccetti/kinisi:build
