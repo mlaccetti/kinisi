@@ -37,13 +37,16 @@ func _SnarfPackets(testMode bool) int {
 		loggo.ReplaceDefaultWriter(infoWriter)
 	}
 
-	log.Infof("kinisi online, snarfing traffic.")
 	var iface = viper.GetString("interface")
 	var snaplen = viper.GetInt("snaplen")
+	var ip4 = viper.GetBool("ip4")
+	var ip6 = viper.GetBool("ip6")
 	var filter = viper.GetString("filter")
 	var resolveDns = viper.GetBool("resolve_dns")
 
-	internal.Start(&iface, &snaplen, &filter, &verboseMode, &resolveDns)
+	log.Infof("kinisi online, snarfing traffic on %v (ip4: %t, ip6: %t); dns resolution enabled: %t", iface, ip4, ip6, resolveDns)
+
+	internal.Start(&iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
 
 	return 0
 }

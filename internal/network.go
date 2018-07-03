@@ -27,35 +27,38 @@ func Start(iface *string, snaplen *int, filter *string, ipv4 *bool, ipv6 *bool, 
 	var ip4 layers.IPv4
 	var ip6 layers.IPv6
 
-	var decodingLayer = [...]gopacket.DecodingLayer {
+	var decodingLayer = []gopacket.DecodingLayer {
 		&eth, &tcp, &udp,
 	}
 
+	if *ipv4 {
+		decodingLayer = append(decodingLayer, &ip4)
+	}
+
+	if *ipv6 {
+		decodingLayer = append(decodingLayer, &ip6)
+	}
 
 
-	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, &eth, &ip4, &ip6, &tcp, &udp)
+	parser := gopacket.NewDecodingLayerParser(layers.LayerTypeEthernet, decodingLayer...)
 	var decoded []gopacket.LayerType
 
 	for packet := range packetSource.Packets() {
 		parser.DecodeLayers(packet.Data(), &decoded)
 
 		for _, layerType := range decoded {
+
+
 			switch layerType {
+			case layers.LayerTypeIPv4:
+				log.Debugf("    IPv4: %v -> %v", ip4.NetworkFlow().Src().String(), ip4.NetworkFlow().Dst().String())
+			case layers.LayerTypeIPv6:
+				log.Debugf("    IPv6: %v -> %v ", ip6.NetworkFlow().Src().String(), ip6.NetworkFlow().Dst().String())
 			case layers.LayerTypeTCP:
-				log.Debugf("    TCP ", tcp.SrcPort.String(), tcp.DstPort.String(), len(tcp.Payload))
+				log.Debugf("    TCP: %v -> %v :: %v ", tcp.SrcPort.String(), tcp.DstPort.String(), len(tcp.Payload))
 			case layers.LayerTypeUDP:
-				log.Debugf("    UDP ", udp.SrcPort.String(), udp.DstPort.String(), len(udp.Payload))
+				log.Debugf("    UDP: %v -> %v :: %v ", udp.SrcPort.String(), udp.DstPort.String(), len(udp.Payload))
 			}
 		}
-
-		/*if packet != nil && packet.NetworkLayer() != nil {
-			bytes := int64(len(packet.Data()))
-			src := packet.NetworkLayer().NetworkFlow().Src().String()
-			dst := packet.NetworkLayer().NetworkFlow().Dst().String()
-
-			if *verboseMode {
-				log.Debugf("%v sent %v to %v", src, bytes, dst)
-			}
-		}*/
 	}
 }
