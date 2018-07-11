@@ -29,7 +29,7 @@ func _SnarfPackets(testMode bool) int {
 
 	verboseMode := viper.GetBool("verbose")
 	if viper.IsSet("verbose") && verboseMode == true {
-		var traceWriter = loggo.NewMinimumLevelWriter(loggocolor.NewWriter(os.Stderr), loggo.TRACE)
+		var traceWriter = loggo.NewMinimumLevelWriter(loggocolor.NewWriter(os.Stderr), loggo.DEBUG)
 		loggo.ReplaceDefaultWriter(traceWriter)
 		log.Infof("Verbose mode: enabled")
 	} else {
@@ -51,7 +51,7 @@ func _SnarfPackets(testMode bool) int {
 	go internal.PrometheusHttpServer(errs, &listen)
 
 	var c = make(chan internal.Traffic)
-	go internal.Start(c, &iface, &snaplen, &filter, &ip4, &ip6, &verboseMode, &resolveDns)
+	go internal.Start(c, &iface, &snaplen, &filter, &ip4, &ip6, &resolveDns)
 	go internal.MetricHandler(c)
 
 	select {

@@ -1,24 +1,28 @@
 package internal
 
 import (
-	"net/http"
-	"strconv"
+"net/http"
+"strconv"
 
-	"github.com/prometheus/client_golang/prometheus"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+
+
+"github.com/prometheus/client_golang/prometheus"
+"github.com/prometheus/client_golang/prometheus/promhttp"
+
 )
 
-var trafficSummary = prometheus.NewSummaryVec(
-	prometheus.SummaryOpts{
-		Name: "network_traffic",
-		Help: "Network connections, partitioned by IP4/6, protocol (TCP/UDP), and source/destination",
-		Objectives: map[float64]float64{},
+var networkTraffic = prometheus.NewGaugeVec(
+	prometheus.GaugeOpts{
+		Namespace: "points",
+		Subsystem: "network",
+		Name:      "network_traffic",
+		Help:      "Network connections, partitioned by IP4/6, protocol (TCP/UDP), and source/destination",
 	},
 	[]string{"network_layer", "transport_layer", "source", "source_port", "destination", "destination_port"},
 )
 
 func init() {
-	prometheus.MustRegister(trafficSummary)
+	prometheus.Register(networkTraffic)
 }
 
 func PrometheusHttpServer(errs chan<- error, listen *string) {
@@ -35,6 +39,11 @@ func MetricHandler(c <-chan Traffic) {
 	for {
 		t := <-c
 
-		trafficSummary.WithLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort))).Observe(float64(t.len))
+		if t.len == 0 {
+			log.Debugf("Removing %v", t)
+			networkTraffic.DeleteLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort)))
+		} else {
+			networkTraffic.WithLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort))).Add(float64(t.len))
+		}
 	}
 }
