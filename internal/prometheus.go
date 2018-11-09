@@ -41,9 +41,14 @@ func MetricHandler(c <-chan Traffic) {
 
 		if t.len == 0 {
 			log.Debugf("Removing %v", t)
-			networkTraffic.DeleteLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort)))
+			if !networkTraffic.Delete(prometheus.Labels{"network_layer": t.layerType, "transport_layer": t.layerType, "source": t.src,
+				"source_port": strconv.Itoa(t.srcPort), "destination": t.dst, "destination_port": strconv.Itoa(t.dstPort)}) {
+				log.Warningf("Did not remove metric %v", t)
+			}
 		} else {
-			networkTraffic.WithLabelValues(t.ipType, t.layerType, t.src, strconv.Itoa(int(t.srcPort)), t.dst, strconv.Itoa(int(t.dstPort))).Add(float64(t.len))
+			log.Debugf("Adding %v", t)
+			networkTraffic.With(prometheus.Labels{"network_layer": t.layerType, "transport_layer": t.layerType, "source": t.src,
+				"source_port": strconv.Itoa(t.srcPort), "destination": t.dst, "destination_port": strconv.Itoa(t.dstPort)}).Add(float64(t.len))
 		}
 	}
 }
